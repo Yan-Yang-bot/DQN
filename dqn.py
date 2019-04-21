@@ -90,7 +90,7 @@ class QFunction:
             h3 = conv2d(h2, 64, 3, activation="relu")
             h4 = dense(Flatten()(h3), 512, activation="relu")
             self.output = dense(h4, num_action)
-        sess.run(tf.initialize_variables(self.scope.trainable_variables()))
+        sess.run(tf.variables_initializer(self.scope.trainable_variables()))
 
     def getVariables(self):
         """
@@ -134,14 +134,15 @@ class QFunction:
 
     def eval(self, env):
         returns = []
-        for _ in range(15):
+        for _ in range(5):
             ret = 0
             evalenv = gym.make(env)
+            prep = Preprocess(evalenv.observation_space.shape)
             obs = evalenv.reset()
             done = False
             while not done:
-                act = self.predict(obs)
-                obs, r, done, _ = gym.step(act)
+                act = np.argmax(self.predict(prep.storeGet(obs)))
+                obs, r, done, _ = evalenv.step(act)
                 ret += r
                 print('.', end='')
             returns.append(ret)
@@ -158,10 +159,11 @@ def run(args):
     preprocess = Preprocess(env.observation_space.shape)
     buffer = ReplayBuffer()
     qFunc = QFunction(num_action, "q")
+    print(qFunc.eval(args.env))
     tFunc = QFunction(num_action, "target")
     tFunc.sync(qFunc.getVariables())
 
-    #TODO: your DQN
+    #your DQN
     #Step forward first, then update networks
     count = 0
     epsilon = 1.0
@@ -170,6 +172,8 @@ def run(args):
     for epi in range(args.episodes):
         obs = env.reset()
         input = preprocess.storeGet(obs)
+        done = False
+        t=0
         while not done:
             if random.random()>epsilon:
                 act = np.argmax(qFunc.predict(input))
@@ -181,6 +185,7 @@ def run(args):
             experience = Experience(input, act, reward, newInput, done)
             buffer.add(experience)
             count += 1
+            t += 1
             if count>=500:
                 input = newInput
                 yy, ss, aa = [], [], []
@@ -199,9 +204,9 @@ def run(args):
                 if count%1500==0:
                     avereturn = qFunc.eval(args.env)
                     ave_rets.append(avereturn)
-                    print("Episode {}, Count {}, Ave-Return {} ===> loss {}".format(epi, count, avereturn loss))
+                    print("Episode {}, step {}, Count {}, Ave-Return {} ===> loss {}".format(epi, t, count, avereturn, loss))
                 else:
-                    print("Episode {}, Count {} ===> loss {}".format(epi, count, loss))
+                    print("Episode {}, step {}, Count {}, Reward {}  ===> loss {}".format(epi, t, count, reward, loss))
 
                 '''
                 TODO: after learned something (param update)
@@ -231,7 +236,6 @@ if __name__ == "__main__":
     parser.add_argument("--epsilon", default=1.0)
     parser.add_argument("--gamma", default=0.99)
 
-    #TODO: add your own parameters
 
     args = parser.parse_args()
     run(args)
