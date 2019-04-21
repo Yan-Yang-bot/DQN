@@ -132,6 +132,23 @@ class QFunction:
         for (val, var) in zip(values, self.scope.trainable_variables()):
             tf.assign(var, val)
 
+    def eval(self, env):
+        returns = []
+        for _ in range(15):
+            ret = 0
+            evalenv = gym.make(env)
+            obs = evalenv.reset()
+            done = False
+            while not done:
+                act = self.predict(obs)
+                obs, r, done, _ = gym.step(act)
+                ret += r
+                print('.', end='')
+            returns.append(ret)
+            print('*', end='')
+        print()
+        return sum(returns)/5
+
 def run(args):
     env = gym.make(args.env)
     assert isinstance(env.action_space, gym.spaces.Discrete)
@@ -149,10 +166,11 @@ def run(args):
     count = 0
     epsilon = 1.0
     exploration = 0
+    ave_rets = []  # Stored every 1500 steps
     for epi in range(args.episodes):
         obs = env.reset()
         input = preprocess.storeGet(obs)
-        for t in range(args.steps):
+        while not done:
             if random.random()>epsilon:
                 act = np.argmax(qFunc.predict(input))
             else:
@@ -178,7 +196,12 @@ def run(args):
                 # squared gradient momentum: 0.95, min squared gradient: 0.01
 
                 loss = qFunc.update(yy, ss, aa)
-                print("Episode {}, Step {}, Count {}, ===> loss {}".format(epi, t, count, loss))
+                if count%1500==0:
+                    avereturn = qFunc.eval(args.env)
+                    ave_rets.append(avereturn)
+                    print("Episode {}, Count {}, Ave-Return {} ===> loss {}".format(epi, count, avereturn loss))
+                else:
+                    print("Episode {}, Count {} ===> loss {}".format(epi, count, loss))
 
                 '''
                 TODO: after learned something (param update)
@@ -198,13 +221,13 @@ def run(args):
             else:
                 print("step({}/500)".format(count), end='\r')
 
+    np.asarray(ave_rets).dump('to_plot.npz')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", required=True)
-    parser.add_argument("--episodes", default=150)
-    parser.add_argument("--steps", default=200)
+    parser.add_argument("--episodes", default=15)
     parser.add_argument("--epsilon", default=1.0)
     parser.add_argument("--gamma", default=0.99)
 
