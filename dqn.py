@@ -13,7 +13,7 @@ sess = tf.Session()
 
 class ReplayBuffer:
     """ Class for Experience Replay """
-    def __init__(self, replay_mem_size=10000):
+    def __init__(self, replay_mem_size=100000):
         """
         :param replay_mem_size: The maximum buffer size
         """
@@ -179,7 +179,7 @@ def run(args):
 
     buffer = ReplayBuffer()
     qFunc = NeuralNetwork(num_action, "q")
-    print(qFunc.eval(evalEnv)) #TODO: delete
+    # print(qFunc.eval(evalEnv)) #TODO: delete
     tFunc = NeuralNetwork(num_action, "target")
     qFunc.initLossGraph()
     tFunc.sync(qFunc.getVariables())
@@ -222,9 +222,9 @@ def run(args):
 
             # for the first 500 steps, skip learning, and do random actions
             # without need to care about what state it is in
-            if count<500:
+            if count<5000:
                 sys.stdout.write("\r")
-                sys.stdout.write("step({}/500)".format(count))
+                sys.stdout.write("step({}/5000)".format(count))
 
             # after the first 500 steps
             else:
@@ -243,11 +243,11 @@ def run(args):
                 loss = qFunc.update(yy, ss, aa)
 
                 # logging with average return calculation every 1500 steps
-                if count%1500==0:
+                if count%1000==0:
                     avereturn = qFunc.eval(evalEnv)
                     ave_rets.append(avereturn)
                     print("Episode {}, step {}, Count {}, Ave-Return {} ===> loss {}".format(epi, t, count, avereturn, loss))
-                else:
+                elif count%10==0:
                     print("Episode {}, step {}, Count {}, Reward {}  ===> loss {}".format(epi, t, count, reward, loss))
 
 
@@ -259,15 +259,15 @@ def run(args):
                 processedState = newProcessedState
 
                 if epsilon>0.1:
-                    epsilon -= 1.9e-6
-                elif exploration<10000:
+                    epsilon -= 1.9e-7
+                elif exploration<100000:
                     epsilon=0.1
                 else:
                     epsilon=0
 
                 # Sync q network params to the target function every 100 steps
 
-                if count%100==0 and count!=500:
+                if count%1000==0 and count!=5000:
                     tFunc.sync(qFunc.getVariables())
 
 
