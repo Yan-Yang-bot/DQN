@@ -32,25 +32,39 @@ def run(args):
 
     count = 0
     epi = 0
-    n_steps = int(args.steps)
+    global_steps = int(args.steps)
+    noop_max = 30
+    exploration_max = 10000
+    target_rate = 500
+    q_rate = 4
 
     ave_rets = []  # Stored an average return every 1500 steps
 
-    while count < n_steps:
+    while count < global_steps:
         # Settings for starting a new episode
         obs = env.reset()
         preprocess = Preprocess(env.observation_space.shape)
         processedState = preprocess.storeGet(obs)
         done = False
         t = 0
+        noop = True
 
-        while not done and count < n_steps:
+        while not done and count < global_steps:
             # epsilon-greedy action selection
             if random.random()>epsilon:
                 act = np.argmax(qFunc.predict(processedState))
             else:
                 act = env.action_space.sample()
                 exploration += 1
+
+            # no-op at the beginning can't exceed noop_max
+            if noop:
+                if act == 0:
+                    if t >= noop_max:
+                        act = 1
+                else:
+                    noop = False
+
             # step forward, get a transition, and store it in the buffer
             newObs, reward, done, info = env.step(act)
             newProcessedState = preprocess.storeGet(newObs)
@@ -63,52 +77,52 @@ def run(args):
 
             # for the first 500 steps, skip learning, and do random actions
             # without need to care about what state it is in
-            if count<5000:
+            if count < 5000:
                 sys.stdout.write("\r")
                 sys.stdout.write("step({}/5000)".format(count))
 
             # after the first 500 steps
             else:
-                # sample a batch of transitions from buffer each time and calculate the target
-                yy, ss, aa = [], [], []
-                for experience in buffer.sample():
-                    ss.append(experience.s)
-                    aa.append([experience.a])
-                    if experience.done:
-                        yy.append([experience.r])
+                # select four actions between two updates
+                if count % q_rate == 0:
+                    # sample a batch of transitions from buffer each time and calculate the target
+                    yy, ss, aa = [], [], []
+                    for experience in buffer.sample():
+                        ss.append(experience.s)
+                        aa.append([experience.a])
+                        if experience.done:
+                            yy.append([experience.r])
+                        else:
+                            yy.append([experience.r + args.gamma * np.max(tFunc.predict(experience.sp))])
+
+                    # use the target-status-action triple of each item in the batch to
+                    # find the current gradient and optimize the q network
+                    loss = qFunc.update(yy, ss, aa)
+
+                    # after learned something (param update)
+                    # anneal epsilon toward 0.1 with total exploration frame number 1,000,000
+                    # no longer use randomly sampled actions
+                    # update state representation and epsilon
+
+                    if epsilon > 0.1:
+                        epsilon -= 1.9e-7
+                    elif exploration < exploration_max:
+                        epsilon = 0.1
                     else:
-                        yy.append([experience.r + args.gamma * np.max(tFunc.predict(experience.sp))])
+                        epsilon = 0
 
-                # use the target-status-action triple of each item in the batch to
-                # find the current gradient and optimize the q network
-                loss = qFunc.update(yy, ss, aa)
-
-                # logging with average return calculation every 1000 steps
-                if count%1000==0:
+                # logging with average return calculation every 1000 steps, normal logging every 10 steps
+                if count % 1000 == 0:
                     avereturn = qFunc.eval(evalEnv)
                     ave_rets.append(avereturn)
                     print("Episode {}, step {}, Count {}, Ave-Return {} ===> loss {}".format(epi, t, count, avereturn, loss))
-                elif count%10==0:
+                elif count % 10==0:
                     print("Episode {}, step {}, Count {}, Reward {}  ===> loss {}".format(epi, t, count, reward, loss))
 
 
-                # after learned something (param update)
-                # anneal epsilon toward 0.1 with total exploration frame number 1,000,000
-                # no longer use randomly sampled actions
-                # update state representation and epsilon
+                # Sync q network params to the target function every 1000 steps
 
-                processedState = newProcessedState
-
-                if epsilon>0.1:
-                    epsilon -= 1.9e-7
-                elif exploration<100000:
-                    epsilon=0.1
-                else:
-                    epsilon=0
-
-                # Sync q network params to the target function every 100 steps
-
-                if count%1000==0 and count!=5000:
+                if count % target_rate == 0 and count != 5000:
                     tFunc.sync(qFunc.getVariables())
 
 
