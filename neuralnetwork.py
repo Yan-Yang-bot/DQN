@@ -81,8 +81,9 @@ class NeuralNetwork:
         :return: average return
         """
         #print(self.getVariables()[0][1])
+        N = 10
         returns = []
-        for _ in range(5):
+        for _ in range(N):
             ret = 0
             prep = Preprocess(env.observation_space.shape)
             obs = env.reset()
@@ -98,6 +99,6 @@ class NeuralNetwork:
                 t += 1
             del prep
             returns.append(ret)
-            sys.stdout.write('*\n')
+            sys.stdout.write('*{},{}\n'.format(t,ret))
 
-        return sum(returns)/5
+        return sum(returns)/N
