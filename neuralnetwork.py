@@ -58,9 +58,9 @@ class NeuralNetwork:
     def update(self, yy, ss, aa):
         """
         Back propagation in qFunc
-        :param yy: A list of 32 target values of the sampled transitions
-        :param ss: A list of 32 preprocessed input statuses of the sampled transitions
-        :param aa: A list of 32 actions chosen in the sampled transitions
+        :param yy: A list of target values of the sampled transitions
+        :param ss: A list of preprocessed input statuses of the sampled transitions
+        :param aa: A list of actions chosen in the sampled transitions
         :return: the loss value at this parameter update
         """
         loss_value, _ = self.sess.run([self.loss, self.opt], feed_dict={self.input: ss, self.a: aa, self.y: yy})
@@ -81,7 +81,7 @@ class NeuralNetwork:
         :return: average return
         """
         #print(self.getVariables()[0][1])
-        N = 10
+        N = 5
         returns = []
         for _ in range(N):
             ret = 0
