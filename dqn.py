@@ -39,6 +39,7 @@ def run(args):
     q_rate = 4
 
     ave_rets = []  # Stored an average return every 1500 steps
+    rets = []  # Store 5 returns for calculating the average
 
     while count < global_steps:
         # Settings for starting a new episode
@@ -49,9 +50,11 @@ def run(args):
         t = 0
         noop = True
 
+        return_ = 0
+
         while not done and count < global_steps:
             # epsilon-greedy action selection
-            if random.random()>epsilon:
+            if random.random() > epsilon:
                 act = np.argmax(qFunc.predict(processedState))
             else:
                 act = env.action_space.sample()
@@ -67,6 +70,7 @@ def run(args):
 
             # step forward, get a transition, and store it in the buffer
             newObs, reward, done, info = env.step(act)
+            return_ += reward
             newProcessedState = preprocess.storeGet(newObs)
             experience = Experience(processedState, act, reward, newProcessedState, done)
             buffer.add(experience)
@@ -112,11 +116,13 @@ def run(args):
                         epsilon = 0
 
                 # logging with average return calculation every 1000 steps, normal logging every 10 steps
+                '''
                 if count % 1000 == 0:
                     avereturn = qFunc.eval(evalEnv)
                     ave_rets.append(avereturn)
                     print("Episode {}, step {}, Count {}, Ave-Return {} ===> loss {}".format(epi, t, count, avereturn, loss))
-                elif count % 10==0:
+                '''
+                if count % 10==0:
                     print("Episode {}, step {}, Count {}, Reward {}  ===> loss {}".format(epi, t, count, reward, loss))
 
 
@@ -125,7 +131,13 @@ def run(args):
                 if count % target_rate == 0 and count != 5000:
                     tFunc.sync(qFunc.getVariables())
 
+        rets.append(return_)
+        if epi==0:
+            rets.extend([return_] * 4)
+        else:
+            rets = rets[1:]
 
+        ave_rets.append(sum(rets)/5)
 
         epi += 1
         del preprocess
