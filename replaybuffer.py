@@ -3,13 +3,15 @@ from collections import deque
 
 
 class ReplayBuffer:
+
+    replay_mem_size = 10000
+
     """ Class for Experience Replay """
-    def __init__(self, replay_mem_size=100000):
+    def __init__(self):
         """
         :param replay_mem_size: The maximum buffer size
         """
         self.mem = deque()
-        self.replay_mem_size=replay_mem_size
 
     def add(self, experience):
         """
