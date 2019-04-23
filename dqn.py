@@ -20,7 +20,6 @@ def run(args):
     buffer = ReplayBuffer()
     qFunc = NeuralNetwork(num_action, "q")
     #print(qFunc.getVariables()[0][1])
-    # print(qFunc.eval(evalEnv)) #TODO: delete
     tFunc = NeuralNetwork(num_action, "target")
     qFunc.initLossGraph()
     tFunc.sync(qFunc.getVariables())
@@ -39,7 +38,7 @@ def run(args):
     q_rate = 4
 
     ave_rets = []  # Stored an average return every 1500 steps
-    rets = []  # Store 5 returns for calculating the average
+    # rets = []  # Store 5 returns for calculating the average
 
     while count < global_steps:
         # Settings for starting a new episode
@@ -109,19 +108,19 @@ def run(args):
                     # update state representation and epsilon
 
                     if epsilon > 0.1:
-                        epsilon -= 1.9e-7
+                        epsilon *= 0.95
                     elif exploration < exploration_max:
                         epsilon = 0.1
                     else:
                         epsilon = 0
 
                 # logging with average return calculation every 1000 steps, normal logging every 10 steps
-                '''
+                # '''
                 if count % 1000 == 0:
                     avereturn = qFunc.eval(evalEnv)
                     ave_rets.append(avereturn)
                     print("Episode {}, step {}, Count {}, Ave-Return {} ===> loss {}".format(epi, t, count, avereturn, loss))
-                '''
+                # '''
                 if count % 10==0:
                     print("Episode {}, step {}, Count {}, Reward {}  ===> loss {}".format(epi, t, count, reward, loss))
 
@@ -131,6 +130,7 @@ def run(args):
                 if count % target_rate == 0 and count != 5000:
                     tFunc.sync(qFunc.getVariables())
 
+        '''
         rets.append(return_)
         if epi==0:
             rets.extend([return_] * 4)
@@ -138,7 +138,8 @@ def run(args):
             rets = rets[1:]
 
         ave_rets.append(sum(rets)/5)
-
+        print("====={}=====".format(ave_rets[-1]))
+        '''
         epi += 1
         del preprocess
 
