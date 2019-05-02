@@ -34,5 +34,10 @@ class Preprocess:
         return np.stack( [resize(cvtColor(img, COLOR_BGR2GRAY), (84,84)) for img in self.history], axis=-1 )
 
     def storeGet(self, img):
+        """
+        Store the single frame and get the preprocessed result including the most recent 4 frames.
+        :param img: the single raw frame to be stored
+        :return: the preprocessed result -- the most recent four frames
+        """
         self.store(img)
         return self.getinput()
