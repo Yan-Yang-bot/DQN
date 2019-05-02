@@ -34,8 +34,8 @@ def run(args):
     global_steps = int(args.steps)
     noop_max = 30
     exploration_max = 10000
-    target_rate = 500
-    q_rate = 4
+    target_rate = 100
+    q_rate = int(args.q_rate)
 
     ave_rets = []  # Stored an average return every 1500 steps
     # rets = []  # Store 5 returns for calculating the average
@@ -52,18 +52,20 @@ def run(args):
         return_ = 0
 
         while not done and count < global_steps:
-            # epsilon-greedy action selection
-            if random.random() > epsilon:
-                act = np.argmax(qFunc.predict(processedState))
-            else:
-                act = env.action_space.sample()
-                exploration += 1
+            if t%4 == 0:
+                # epsilon-greedy action selection
+                if random.random() > epsilon:
+                    act = np.argmax(qFunc.predict(processedState))
+                else:
+                    act = env.action_space.sample()
+                    exploration += 1
 
             # no-op at the beginning can't exceed noop_max
             if noop:
                 if act == 0:
                     if t >= noop_max:
                         act = 1
+                        noop = False
                 else:
                     noop = False
 
@@ -80,23 +82,17 @@ def run(args):
 
             # for the first 500 steps, skip learning, and do random actions
             # without need to care about what state it is in
-            if count < 5000:
+            if count < 500:
                 sys.stdout.write("\r")
-                sys.stdout.write("step({}/5000)".format(count))
+                sys.stdout.write("step({}/500)".format(count))
 
             # after the first 500 steps
             else:
                 # select four actions between two updates
                 if count % q_rate == 0:
                     # sample a batch of transitions from buffer each time and calculate the target
-                    yy, ss, aa = [], [], []
-                    for experience in buffer.sample():
-                        ss.append(experience.s)
-                        aa.append([experience.a])
-                        if experience.done:
-                            yy.append([experience.r])
-                        else:
-                            yy.append([experience.r + args.gamma * np.max(tFunc.predict(experience.sp))])
+                    rewFunc = lambda sp:args.gamma * np.max(tFunc.predict(sp))
+                    yy, ss, aa = buffer.sample(rewFunc)
 
                     # use the target-status-action triple of each item in the batch to
                     # find the current gradient and optimize the q network
@@ -121,13 +117,13 @@ def run(args):
                     ave_rets.append(avereturn)
                     print("Episode {}, step {}, Count {}, Ave-Return {} ===> loss {}".format(epi, t, count, avereturn, loss))
                 # '''
-                if count % 10==0:
+                if count % 100==0:
                     print("Episode {}, step {}, Count {}, Reward {}  ===> loss {}".format(epi, t, count, reward, loss))
 
 
                 # Sync q network params to the target function every 1000 steps
 
-                if count % target_rate == 0 and count != 5000:
+                if count % target_rate == 0 and count != 500:
                     tFunc.sync(qFunc.getVariables())
 
         '''
@@ -143,15 +139,16 @@ def run(args):
         epi += 1
         del preprocess
 
-    np.asarray(ave_rets).dump('to_plot.npz')
+    np.asarray(ave_rets).dump('to_plot1500-5.npz')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", required=True)
-    parser.add_argument("--steps", default=30000)
+    parser.add_argument("--steps", default=3000000)
     #parser.add_argument("--epsilon", default=1.0)
     parser.add_argument("--gamma", default=0.99)
+    parser.add_argument("--q_rate", default=4)
 
 
     args = parser.parse_args()
