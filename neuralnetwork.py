@@ -34,9 +34,9 @@ class NeuralNetwork:
         self.y = tf.placeholder(shape=[None, 1], dtype=tf.float32)
         self.a = tf.placeholder(shape=[None, 1], dtype=tf.int32)
         self.loss = tf.reduce_sum( tf.square( tf.subtract(self.y, tf.gather_nd(self.output, self.a)) ) )
-        adam = AdamOptimizer(0.00025, epsilon=0.01)
-        self.opt = adam.minimize(self.loss)
-        self.sess.run(tf.variables_initializer(adam.variables()))
+        rms = RMSPropOptimizer(0.00025, momentum=0.95, epsilon=0.01)
+        self.opt = rms.minimize(self.loss)
+        self.sess.run(tf.variables_initializer(rms.variables()))
 
     def getVariables(self):
         """
