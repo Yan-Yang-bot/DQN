@@ -20,7 +20,6 @@ def run(args):
     buffer = ReplayBuffer()
     qFunc = NeuralNetwork(num_action, "q")
     #print(qFunc.getVariables()[0][1])
-    # print(qFunc.eval(evalEnv)) #TODO: delete
     tFunc = NeuralNetwork(num_action, "target")
     qFunc.initLossGraph()
     tFunc.sync(qFunc.getVariables())
@@ -36,9 +35,9 @@ def run(args):
     noop_max = 30
     exploration_max = 10000
     target_rate = 500
-    q_rate = 4
+    q_rate = int(args.q_rate)
 
-    ave_rets = []  # Stored an average return every 1500 steps
+    ave_rets = []  # Stored an average return every 2000 steps
 
     while count < global_steps:
         # Settings for starting a new episode
@@ -49,9 +48,12 @@ def run(args):
         t = 0
         noop = True
 
+        return_ = 0
+
         while not done and count < global_steps:
+            #if t%4 == 0:
             # epsilon-greedy action selection
-            if random.random()>epsilon:
+            if random.random() > epsilon:
                 act = np.argmax(qFunc.predict(processedState))
             else:
                 act = env.action_space.sample()
@@ -62,11 +64,13 @@ def run(args):
                 if act == 0:
                     if t >= noop_max:
                         act = 1
+                        noop = False
                 else:
                     noop = False
 
             # step forward, get a transition, and store it in the buffer
             newObs, reward, done, info = env.step(act)
+            return_ += reward
             newProcessedState = preprocess.storeGet(newObs)
             experience = Experience(processedState, act, reward, newProcessedState, done)
             buffer.add(experience)
@@ -86,14 +90,8 @@ def run(args):
                 # select four actions between two updates
                 if count % q_rate == 0:
                     # sample a batch of transitions from buffer each time and calculate the target
-                    yy, ss, aa = [], [], []
-                    for experience in buffer.sample():
-                        ss.append(experience.s)
-                        aa.append([experience.a])
-                        if experience.done:
-                            yy.append([experience.r])
-                        else:
-                            yy.append([experience.r + args.gamma * np.max(tFunc.predict(experience.sp))])
+                    rewFunc = lambda sp:args.gamma * np.max(tFunc.predict(sp))
+                    yy, ss, aa = buffer.sample(rewFunc)
 
                     # use the target-status-action triple of each item in the batch to
                     # find the current gradient and optimize the q network
@@ -105,27 +103,25 @@ def run(args):
                     # update state representation and epsilon
 
                     if epsilon > 0.1:
-                        epsilon -= 1.9e-7
+                        epsilon *= 0.95
                     elif exploration < exploration_max:
                         epsilon = 0.1
                     else:
                         epsilon = 0
 
-                # logging with average return calculation every 1000 steps, normal logging every 10 steps
-                if count % 1000 == 0:
+                # logging with average return calculation every 2000 steps, normal logging every 100 steps
+                if count % 2000 == 0:
                     avereturn = qFunc.eval(evalEnv)
                     ave_rets.append(avereturn)
-                    print("Episode {}, step {}, Count {}, Ave-Return {} ===> loss {}".format(epi, t, count, avereturn, loss))
-                elif count % 10==0:
+                    print(" Ave-Return {} ".format(avereturn))
+                if count % 100==0:
                     print("Episode {}, step {}, Count {}, Reward {}  ===> loss {}".format(epi, t, count, reward, loss))
 
 
-                # Sync q network params to the target function every 1000 steps
+                # Sync q network params to the target function every <target_rate> steps
 
                 if count % target_rate == 0 and count != 5000:
                     tFunc.sync(qFunc.getVariables())
-
-
 
         epi += 1
         del preprocess
@@ -137,8 +133,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", required=True)
     parser.add_argument("--steps", default=30000)
-    #parser.add_argument("--epsilon", default=1.0)
     parser.add_argument("--gamma", default=0.99)
+    parser.add_argument("--q_rate", default=4)
 
 
     args = parser.parse_args()
