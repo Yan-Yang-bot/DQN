@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from tensorflow.layers import conv2d, Flatten, dense
-from tensorflow.train import RMSPropOptimizer
+from tensorflow.train import AdamOptimizer, RMSPropOptimizer
 import sys
 
 from preprocess import Preprocess
@@ -19,9 +19,9 @@ class NeuralNetwork:
         """
         with tf.variable_scope(scope_name) as self.scope:
             self.input = tf.placeholder(shape=[None, 84, 84, 4], dtype=tf.float32)
-            h1 = conv2d(self.input, 32, 8, strides=(4,4), activation="relu")
-            h2 = conv2d(h1, 64, 4, strides=(2,2), activation="relu")
-            h3 = conv2d(h2, 64, 3, activation="relu")
+            h1 = conv2d(self.input, 32, (8, 8), strides=(4,4), activation="relu")
+            h2 = conv2d(h1, 64, (4, 4), strides=(2,2), activation="relu")
+            h3 = conv2d(h2, 64, (3, 3), activation="relu")
             h4 = dense(Flatten()(h3), 512, activation="relu")
             self.output = dense(h4, num_action)
         self.sess.run(tf.variables_initializer(self.scope.trainable_variables()))
@@ -33,13 +33,10 @@ class NeuralNetwork:
         """
         self.y = tf.placeholder(shape=[None, 1], dtype=tf.float32)
         self.a = tf.placeholder(shape=[None, 1], dtype=tf.int32)
-        #print(self.output, a)
-        #output_var = tf.get_variable("output", dtype=tf.float32, initializer=self.output, trainable=False, validate_shape=False)
-        #print(output_var)
         self.loss = tf.reduce_sum( tf.square( tf.subtract(self.y, tf.gather_nd(self.output, self.a)) ) )
-        rms = RMSPropOptimizer(0.00025, momentum=0.95, epsilon=0.01)
-        self.opt = rms.minimize(self.loss)
-        self.sess.run(tf.variables_initializer(rms.variables()))
+        adam = AdamOptimizer(0.00025, epsilon=0.01)
+        self.opt = adam.minimize(self.loss)
+        self.sess.run(tf.variables_initializer(adam.variables()))
 
     def getVariables(self):
         """
@@ -99,6 +96,6 @@ class NeuralNetwork:
                 t += 1
             del prep
             returns.append(ret)
-            sys.stdout.write('*{},{}\n'.format(t,ret))
+            sys.stdout.write('*{},{}\n'.format(t, ret))
 
         return sum(returns)/N
