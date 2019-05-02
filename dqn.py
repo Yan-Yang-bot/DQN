@@ -81,9 +81,9 @@ def run(args):
 
             # for the first 500 steps, skip learning, and do random actions
             # without need to care about what state it is in
-            if count < 5000:
+            if count < 500:
                 sys.stdout.write("\r")
-                sys.stdout.write("step({}/5000)".format(count))
+                sys.stdout.write("step({}/500)".format(count))
 
             # after the first 500 steps
             else:
@@ -120,13 +120,13 @@ def run(args):
 
                 # Sync q network params to the target function every <target_rate> steps
 
-                if count % target_rate == 0 and count != 5000:
+                if count % target_rate == 0 and count != 500:
                     tFunc.sync(qFunc.getVariables())
 
         epi += 1
         del preprocess
 
-    np.asarray(ave_rets).dump('to_plot.npz')
+    np.asarray(ave_rets).dump('to_plot1500-5.npz')
 
 
 if __name__ == "__main__":
